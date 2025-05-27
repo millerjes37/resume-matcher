@@ -1,0 +1,24 @@
+{
+    "lines": [
+      {"job": "Civitas LLC", "line": "Developed a full-stack SAAS application using Rust and Dioxus for lobbyists."},
+      {"job": "Civitas LLC", "line": "Led marketing campaigns targeting lobbyists via Google Ads and social media."},
+      {"job": "Civitas LLC", "line": "Designed scalable systems architecture for legislative data processing."},
+      {"job": "Civitas LLC", "line": "Conducted policy analysis to enhance platform functionality."},
+      {"job": "Miller Staking", "line": "Managed administrative workflows for horse trainers and owners."},
+      {"job": "Miller Staking", "line": "Implemented calendaring systems to streamline stake payments."},
+      {"job": "Miller Staking", "line": "Utilized project management to ensure timely service delivery."},
+      {"job": "Kroger Gardis and Regas LLC Marketing Manager", "line": "Crafted marketing strategies to promote legal services."},
+      {"job": "Kroger Gardis and Regas LLC Marketing Manager", "line": "Managed content creation for firm’s website and campaigns."},
+      {"job": "Kroger Gardis and Regas LLC Education Team Summer Law Clerk", "line": "Conducted legal research on education policy and regulations."},
+      {"job": "Kroger Gardis and Regas LLC Education Team Summer Law Clerk", "line": "Drafted legal documents supporting education team initiatives."},
+      {"job": "Wabash College Advancement Intern", "line": "Supported fundraising campaigns through data analysis."},
+      {"job": "Wabash College Advancement Intern", "line": "Coordinated alumni events to enhance engagement."},
+      {"job": "Various Indiana Public Schools Substitute Teacher", "line": "Taught diverse subjects to address teacher shortages."},
+      {"job": "Various Indiana Public Schools Substitute Teacher", "line": "Adapted lesson plans to meet educational standards."},
+      {"job": "Phi Delta Theta, IN Beta", "line": "Led recruitment efforts to grow fraternity membership."},
+      {"job": "Phi Delta Theta, IN Beta", "line": "Advised executive board on strategic initiatives."},
+      {"job": "Miami County Agricultural Association Webmaster", "line": "Maintained and updated association website using HTML and CSS."},
+      {"job": "Miami County Agricultural Association Webmaster", "line": "Optimized website for user engagement and accessibility."}
+    ],
+    "skills": ["Business Management", "Project Management", "Linux Administration", "Nix", "Systems Architecture", "Lobbying", "Policy Analysis", "Legislative Monitoring", "Legal Reasoning"]
+  }
