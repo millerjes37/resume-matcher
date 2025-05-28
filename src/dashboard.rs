@@ -5,7 +5,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, Table, TableState},
     Frame, Terminal,
@@ -60,7 +60,7 @@ pub fn run_dashboard() -> Result<(), Box<dyn Error>> {
 
     loop {
         let records = read_application_data().unwrap_or_else(|_| vec![]); // Handle error if CSV not found/readable
-        terminal.draw(|f| ui(f, &records, &mut table_state))?;
+        terminal.draw(|f| ui::<CrosstermBackend<io::Stdout>>(f, &records, &mut table_state))?;
 
         if event::poll(std::time::Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {
@@ -97,7 +97,7 @@ pub fn run_dashboard() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, records: &[ApplicationRecord], table_state: &mut TableState) {
+fn ui<B: Backend>(f: &mut Frame, records: &[ApplicationRecord], table_state: &mut TableState) {
     let rects = Layout::default()
         .constraints([Constraint::Percentage(100)].as_ref())
         .margin(1)
