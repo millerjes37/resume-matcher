@@ -1,0 +1,9 @@
+Job Title: Software Developer
+Company: ExampleCorp
+Location: Remote
+
+We are looking for a skilled Software Developer to join our team.
+Responsibilities include designing, developing, and maintaining software applications.
+The ideal candidate should have experience with Rust, Python, and cloud technologies.
+Knowledge of machine learning and NLP is a plus.
+Strong problem-solving skills are essential.

@@ -1,4 +1,4 @@
-use rust_bert::pipelines::sentence_embeddings::{SentenceEmbeddingsBuilder, SentenceEmbeddingsModelType};
+use rust_bert::pipelines::sentence_embeddings::{SentenceEmbeddingsBuilder, SentenceEmbeddingsModelType, SentenceEmbeddingsModel};
 use rust_bert::pipelines::ner::NERModel;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::collections::HashMap;
 use chrono::Local;
+use regex::Regex;
 
 mod utils;
 mod graph_scoring;
@@ -15,7 +16,7 @@ mod tfidf;
 use utils::compute_cosine_similarity;
 use graph_scoring::build_knowledge_graph;
 use scoring::score_lines;
-use tfidf::{TfIdf, TfIdfBuilder};
+use tfidf::TfIdfBuilder;
 
 #[derive(Serialize, Deserialize)]
 struct ResumeLine {
@@ -62,7 +63,7 @@ fn main() -> anyhow::Result<()> {
             .ok_or_else(|| anyhow::anyhow!("Failed to get embedding for line: {}", line.line))?;
             
         let entities_res = ner_model.predict(&[&line.line]);
-        let entities: Result<Vec<_>, _> = entities_res
+        let entities: Result<Vec<(String, Vec<f32>)>, anyhow::Error> = entities_res
             .first()
             .ok_or_else(|| anyhow::anyhow!("Failed to get NER results"))?
             .iter()
@@ -106,9 +107,11 @@ fn process_job_description(
     path: &Path,
     resume_lines: &[ResumeLineData],
     skills: &[String],
-    bert_model: &SentenceEmbeddingsModelType,
+    bert_model: &SentenceEmbeddingsModel,
     ner_model: &NERModel,
 ) -> anyhow::Result<()> {
+    const MINIMUM_RELEVANCE_SCORE: f32 = 0.2;
+
     // Extract company and role from filename (e.g., "AcmeCorp-SoftwareEngineer.txt")
     let filename = path.file_stem()
         .and_then(|s| s.to_str())
@@ -145,6 +148,44 @@ fn process_job_description(
     // Score resume lines
     let scored_lines = score_lines(resume_lines, &jd_sentence_embeddings, &tfidf_model, &jd_entities, &jd_text);
 
+    // Determine relevant skills (Moved here to be available for highlighting)
+    let common_tech_skills: Vec<String> = vec![
+        "rust", "python", "java", "c++", "javascript", "aws", "azure", "gcp", "docker", "kubernetes", 
+        "sql", "nosql", "linux", "machine learning", "nlp", "data analysis", "react", "angular", "vue",
+        "systems architecture", "policy analysis", "legislative monitoring", "legal reasoning", 
+        "project management", "business management", "nix", "lobbying" // Adding some from existing master list
+    ].into_iter().map(String::from).collect();
+
+    let mut preliminary_skills: Vec<String> = Vec::new();
+    let jd_text_lower = jd_text.to_lowercase(); // jd_text is already defined
+
+    // Extract skills from JD entities
+    for (entity_text, _) in &jd_entities { // jd_entities is already defined
+        let entity_lower = entity_text.to_lowercase();
+        if common_tech_skills.contains(&entity_lower) {
+            preliminary_skills.push(entity_text.clone()); 
+        }
+    }
+
+    // Extract skills from candidate's master list if present in JD
+    // 'skills' here refers to the function parameter resume_data.skills (master list)
+    for skill_master in skills { // 'skills' is a function parameter
+        let skill_master_lower = skill_master.to_lowercase();
+        if jd_text_lower.contains(&skill_master_lower) {
+            preliminary_skills.push(skill_master.clone()); 
+        }
+    }
+
+    // Deduplicate relevant_skills, preserving order of first appearance
+    let mut relevant_skills: Vec<String> = Vec::new(); 
+    let mut seen_skills_lower: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for skill_prelim in preliminary_skills { 
+        if seen_skills_lower.insert(skill_prelim.to_lowercase()) {
+            relevant_skills.push(skill_prelim);
+        }
+    }
+    // Now `relevant_skills` is available for both highlighting and the main skills section.
+
     // Group by job and select top 4 lines
     let mut lines_by_job: HashMap<String, Vec<(String, f32)>> = HashMap::new();
     for (line, score) in scored_lines {
@@ -159,24 +200,34 @@ fn process_job_description(
     let mut selected_lines: HashMap<String, Vec<String>> = HashMap::new();
     for (job, mut lines) in lines_by_job {
         lines.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        
         let top_lines: Vec<String> = lines
             .into_iter()
-            .take(4)
+            .filter(|(_, score)| *score >= MINIMUM_RELEVANCE_SCORE) // Filter by score
+            .take(4)                                              // Then take top 4 of the *remaining*
             .map(|(line, _)| {
                 let mut formatted_line = line.clone();
-                for skill in skills {
-                    if formatted_line.to_lowercase().contains(&skill.to_lowercase()) {
-                        formatted_line = formatted_line.replace(skill, &format!("#strong[{}]", skill));
+                // `relevant_skills` is in scope here as it was moved before this block.
+                for skill_to_highlight in &relevant_skills { 
+                    let pattern = format!(r"(?i)\b({})\b", regex::escape(skill_to_highlight));
+                    // Handle potential regex compilation error more gracefully if this were production code
+                    if let Ok(re) = Regex::new(&pattern) {
+                        formatted_line = re.replace_all(&formatted_line, |caps: &regex::Captures| {
+                            format!("#strong[{}]", &caps[0])
+                        }).into_owned();
                     }
                 }
                 formatted_line
             })
             .collect();
-        selected_lines.insert(job, top_lines);
+        
+        if !top_lines.is_empty() { // Only insert if there are lines meeting the threshold
+            selected_lines.insert(job, top_lines);
+        }
     }
 
     // Generate Typst resume
-    let typst_content = generate_typst_resume(&selected_lines);
+    let typst_content = generate_typst_resume(&selected_lines, &relevant_skills); // This `relevant_skills` is now correctly defined above
     let date = Local::now().format("%Y-%m-%d").to_string();
     let output_path = format!("output/{}-{}-{}.typ", company, role, date);
     let mut file = File::create(&output_path)?;
@@ -186,7 +237,7 @@ fn process_job_description(
     Ok(())
 }
 
-fn generate_typst_resume(selected_lines: &HashMap<String, Vec<String>>) -> String {
+fn generate_typst_resume(selected_lines: &HashMap<String, Vec<String>>, relevant_skills: &Vec<String>) -> String {
     let format_lines = |job_key: &str| -> String {
         selected_lines
             .get(job_key)
@@ -300,7 +351,7 @@ fn generate_typst_resume(selected_lines: &HashMap<String, Vec<String>>) -> Strin
 
 == Skills
 #set align(center)
-Business Management, Project Management, Linux Administration, Nix, Systems Architecture, Lobbying, Policy Analysis, Legislative Monitoring, Legal Reasoning
+{}
 "##,
         format_lines("Civitas LLC"),
         format_lines("Miller Staking"),
@@ -310,5 +361,6 @@ Business Management, Project Management, Linux Administration, Nix, Systems Arch
         format_lines("Various Indiana Public Schools Substitute Teacher"),
         format_lines("Phi Delta Theta, IN Beta"),
         format_lines("Miami County Agricultural Association Webmaster"),
+        relevant_skills.join(", ")
     )
 }
