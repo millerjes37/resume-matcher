@@ -1,9 +1,9 @@
-use rust_bert::pipelines::sentence_embeddings::SentenceEmbeddingsModelType;
+use rust_bert::pipelines::sentence_embeddings::SentenceEmbeddingsModel;
 use rust_bert::pipelines::ner::NERModel;
 
 pub fn build_knowledge_graph(
     text: &str,
-    bert_model: &SentenceEmbeddingsModelType,
+    bert_model: &SentenceEmbeddingsModel,
     ner_model: &NERModel,
 ) -> anyhow::Result<Vec<(String, Vec<f32>)>> {
     let entities_res = ner_model.predict(&[text]);

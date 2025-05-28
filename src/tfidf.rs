@@ -2,8 +2,6 @@
 use std::collections::HashMap;
 
 pub struct TfIdf {
-    documents: Vec<String>,
-    vocab: HashMap<String, usize>,
     idf: HashMap<String, f32>,
 }
 
@@ -27,7 +25,7 @@ impl TfIdfBuilder {
         let mut doc_count = HashMap::new();
         
         // Build vocabulary and count document frequency
-        for (doc_idx, doc) in self.documents.iter().enumerate() {
+        for (_doc_idx, doc) in self.documents.iter().enumerate() {
             let words: Vec<&str> = doc.split_whitespace().collect();
             let mut seen_words = std::collections::HashSet::new();
             
@@ -56,8 +54,6 @@ impl TfIdfBuilder {
             .collect();
 
         TfIdf {
-            documents: self.documents,
-            vocab,
             idf,
         }
     }
