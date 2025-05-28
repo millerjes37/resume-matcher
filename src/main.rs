@@ -666,4 +666,4 @@ fn generate_typst_cover_letter(
         user_name, user_email, user_phone, user_linkedin, user_github, user_site,
         current_date_str, company, role, tracking_number
     )
-}}
+}
