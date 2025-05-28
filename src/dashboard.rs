@@ -60,7 +60,7 @@ pub fn run_dashboard() -> Result<(), Box<dyn Error>> {
 
     loop {
         let records = read_application_data().unwrap_or_else(|_| vec![]); // Handle error if CSV not found/readable
-        terminal.draw(|f| ui(f, &records, &mut table_state))?;
+        terminal.draw(|f| ui::<CrosstermBackend<io::Stdout>>(f, &records, &mut table_state))?;
 
         if event::poll(std::time::Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {

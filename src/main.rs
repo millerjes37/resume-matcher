@@ -601,23 +601,23 @@ fn generate_typst_cover_letter(
                     align: (left, left),
                     row-gutter: 0.65em,
                     [], // Icon (optional)
-                    [#link("mailto:" + email)[{#email}]], // Use #email for Typst variable
+                    [#link("mailto:" + email)[{email}]], // Corrected: # removed from {email}
                     [], 
-                    [#link("tel:" + phone)[{#phone}]], // Use #phone
+                    [#link("tel:" + phone)[{phone}]], // Corrected: # removed from {phone}
                     [], 
-                    [#link("https://" + linkedin)[{#linkedin}]], // Use #linkedin
+                    [#link("https://" + linkedin)[{linkedin}]], // Corrected: # removed from {linkedin}
                     [], 
-                    [#link("https://" + github)[{#github}]], // Use #github
+                    [#link("https://" + github)[{github}]], // Corrected: # removed from {github}
                     [], 
-                    [#link("https://" + personal_site)[{#personal_site}]], // Use #personal_site
+                    [#link("https://" + personal_site)[{personal_site}]], // Corrected: # removed from {personal_site}
                 )
             }},
             recipient-details: {{
-                [The Hiring Team]                     [#strong[#company_name]] // Use #company_name
+                [The Hiring Team]                     [#strong[#company_name]]
                 // [123 Main Street]                     // [Anytown, ST 12345]
             }},
-            date: today_date, // Uses #today_date
-            subject: [#strong[Application for #job_role Position (Ref: #trk_num)]], // Use #job_role, #trk_num
+            date: today_date,
+            subject: [#strong[Application for #job_role Position (Ref: #trk_num)]],
             body: {{
                 [Dear Hiring Team at #strong[#company_name],] // Use #company_name
 
@@ -628,7 +628,8 @@ fn generate_typst_cover_letter(
                 // This section can be manually customized later or programmatically enhanced
                 // For example, one could insert some of the top selected resume lines here if relevant.
                 // For now, it's a generic paragraph.
-                [I am confident that my skills and enthusiasm would make me a valuable asset to your team. I have attached my resume for your review, which further details my qualifications and accomplishments (Tracking: #trk_num).] // Use #trk_num
+
+                [I am confident that my skills and enthusiasm would make me a valuable asset to your team. I have attached my resume for your review, which further details my qualifications and accomplishments (Tracking: #trk_num).]
 
                 [Thank you for your time and consideration. I look forward to the possibility of discussing this exciting opportunity with you.]
 
