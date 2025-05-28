@@ -1,4 +1,11 @@
-# AI-Powered Resume and Cover Letter System
+# ATS-like scoring of work expirience Lines
+
+I beleive it is disingenuous to us AI to write out your resume. As a business owner I am innundated with resumes and coverletters from young people who clearly used AI to currate their resume. What sucks is, there is, without using an LLM, a monumental disparity in the work required to apply to a given job and the work required to parse a job. Companies who empploy an ATS drive this issue by screening resumes for a match to the provided job description. This project attempts to strike a middle ground.
+
+By Using the job description and scoring indivudual prewritten (by hand) lines that describe the given work expirience. This will automatically surface and populate the bullets that most closely match a string in the job description. We incorperate a number of different common scoring algorithims in this project to create a wholistic look in order to provide the best possible score of lines accross scoring systems.
+
+In the end, everything in the resume has been hand-written by me, Jackson Miller. But the hand written paragraphs are selected via scoring of each individual line. This improves the overall efficency of writing resumes and appling to jobs and allows me to balance quality of what I am submitting and speed at which I can apply to jobs.
+
 
 This project automates the creation of tailored resumes and cover letters, helps track job applications, and includes a web scraper to fetch job descriptions.
 
