@@ -5,7 +5,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, Table, TableState},
     Frame, Terminal,
@@ -97,7 +97,7 @@ pub fn run_dashboard() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, records: &[ApplicationRecord], table_state: &mut TableState) {
+fn ui<B: Backend>(f: &mut Frame, records: &[ApplicationRecord], table_state: &mut TableState) {
     let rects = Layout::default()
         .constraints([Constraint::Percentage(100)].as_ref())
         .margin(1)

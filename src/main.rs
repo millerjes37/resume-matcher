@@ -7,7 +7,7 @@ use std::path::Path;
 use std::collections::HashMap;
 use chrono::Local;
 use regex::Regex;
-use std::io::{self, Write}; // Add io to use statements
+use std::io::{self}; // Add io to use statements
 use std::process::Command; // Add Command to use statements
 use csv::WriterBuilder; // Add for CSV logging
 use std::path::PathBuf;  // Add for CSV logging
@@ -582,16 +582,16 @@ fn generate_typst_cover_letter(
         // Or use basic Typst document setup if a CV-specific one isn't ideal for letters.
         // For simplicity, let's use a structure similar to the resume for contact info.
         
-        #let name = "{}"
-        #let email = "{}"
-        #let phone = "{}"
-        #let linkedin = "{}"
-        #let github = "{}"
-        #let personal_site = "{}"
-        #let today_date = "{}"
-        #let company_name = "{}"
-        #let job_role = "{}"
-        #let trk_num = "{}"
+        #let name = "{}"            // Maps to user_name
+        #let email = "{}"           // Maps to user_email
+        #let phone = "{}"           // Maps to user_phone
+        #let linkedin = "{}"        // Maps to user_linkedin
+        #let github = "{}"          // Maps to user_github
+        #let personal_site = "{}"   // Maps to user_site
+        #let today_date = "{}"      // Maps to current_date_str
+        #let company_name = "{}"    // Maps to company
+        #let job_role = "{}"        // Maps to role
+        #let trk_num = "{}"         // Maps to tracking_number
 
         #show: letter.with( // 'letter' might need to be a custom show rule or use default page setup
             author: name,
@@ -601,38 +601,38 @@ fn generate_typst_cover_letter(
                     align: (left, left),
                     row-gutter: 0.65em,
                     [], // Icon (optional)
-                    [#link("mailto:" + email)[{email}]],
+                    [#link("mailto:" + email)[{#email}]], // Use #email for Typst variable
                     [], 
-                    [#link("tel:" + phone)[{phone}]],
+                    [#link("tel:" + phone)[{#phone}]], // Use #phone
                     [], 
-                    [#link("https://" + linkedin)[{linkedin}]],
+                    [#link("https://" + linkedin)[{#linkedin}]], // Use #linkedin
                     [], 
-                    [#link("https://" + github)[{github}]],
+                    [#link("https://" + github)[{#github}]], // Use #github
                     [], 
-                    [#link("https://" + personal_site)[{personal_site}]],
+                    [#link("https://" + personal_site)[{#personal_site}]], // Use #personal_site
                 )
             }},
             recipient-details: {{
-                [The Hiring Team]                     [#strong[#company_name]]                     // Company Address (Optional, placeholder)
+                [The Hiring Team]                     [#strong[#company_name]] // Use #company_name
                 // [123 Main Street]                     // [Anytown, ST 12345]
             }},
-            date: today_date,
-            subject: [#strong[Application for {job_role} Position (Ref: {trk_num})]],
+            date: today_date, // Uses #today_date
+            subject: [#strong[Application for #job_role Position (Ref: #trk_num)]], // Use #job_role, #trk_num
             body: {{
-                [Dear Hiring Team at #strong[#company_name],]
+                [Dear Hiring Team at #strong[#company_name],] // Use #company_name
 
-                [I am writing to express my keen interest in the #strong[#job_role] position at #strong[#company_name], as advertised on [Platform - e.g., LinkedIn, company website - placeholder]. Having followed #strong[#company_name]'s work in [Industry/Area - placeholder] for some time, I am impressed by [Specific aspect of company - placeholder].]
+                [I am writing to express my keen interest in the #strong[#job_role] position at #strong[#company_name], as advertised on [Platform - e.g., LinkedIn, company website - placeholder]. Having followed #strong[#company_name]'s work in [Industry/Area - placeholder] for some time, I am impressed by [Specific aspect of company - placeholder].] // Use #job_role, #company_name (3 times)
 
                 [My background in [Your Key Skill/Area 1] and [Your Key Skill/Area 2], combined with my experience in [Relevant Experience Area], aligns well with the requirements outlined in the job description. I am particularly adept at [Mention a key responsibility from JD or a relevant achievement].]
 
                 // This section can be manually customized later or programmatically enhanced
                 // For example, one could insert some of the top selected resume lines here if relevant.
                 // For now, it's a generic paragraph.
-                [I am confident that my skills and enthusiasm would make me a valuable asset to your team. I have attached my resume for your review, which further details my qualifications and accomplishments (Tracking: {trk_num}).]
+                [I am confident that my skills and enthusiasm would make me a valuable asset to your team. I have attached my resume for your review, which further details my qualifications and accomplishments (Tracking: #trk_num).] // Use #trk_num
 
                 [Thank you for your time and consideration. I look forward to the possibility of discussing this exciting opportunity with you.]
 
-                [Sincerely,]                     [#name]
+                [Sincerely,]                     [#name] // Use #name
             }}
         )
         
@@ -652,10 +652,10 @@ fn generate_typst_cover_letter(
                 columns: (1fr, 2fr),
                 rows: auto,
                 gutter: 1em,
-                align(right, author-contact-details), // Contact details on the right
-                [] // Empty cell for spacing, or author name again if desired
+                align(right, author-contact-details), 
+                [] 
             )
-            move(dy: -1.5em, dx: 0em, align(left, author)) // Author name on left, slightly adjusted
+            move(dy: -1.5em, dx: 0em, align(left, author)) 
 
             move(dy: 1em, recipient-details)
             move(dy: 1em, date)
@@ -663,7 +663,15 @@ fn generate_typst_cover_letter(
             move(dy: 1em, body)
         }}
         "##,
-        user_name, user_email, user_phone, user_linkedin, user_github, user_site,
-        current_date_str, company, role, tracking_number
+        user_name,        // For #let name
+        user_email,       // For #let email
+        user_phone,       // For #let phone
+        user_linkedin,    // For #let linkedin
+        user_github,      // For #let github
+        user_site,        // For #let personal_site
+        current_date_str, // For #let today_date
+        company,          // For #let company_name
+        role,             // For #let job_role
+        tracking_number   // For #let trk_num
     )
 }
