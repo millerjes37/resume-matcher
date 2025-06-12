@@ -1,28 +1,30 @@
-use rust_bert::pipelines::sentence_embeddings::{SentenceEmbeddingsBuilder, SentenceEmbeddingsModelType, SentenceEmbeddingsModel};
+use chrono::Local;
+use csv::WriterBuilder; // Add for CSV logging
+use regex::Regex;
 use rust_bert::pipelines::ner::NERModel;
+use rust_bert::pipelines::sentence_embeddings::{
+    SentenceEmbeddingsBuilder, SentenceEmbeddingsModel, SentenceEmbeddingsModelType,
+};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::Path;
-use std::collections::HashMap;
-use chrono::Local;
-use regex::Regex;
 use std::io::{self}; // Add io to use statements
-use std::process::Command; // Add Command to use statements
-use csv::WriterBuilder; // Add for CSV logging
-use std::path::PathBuf;  // Add for CSV logging
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command; // Add Command to use statements // Add for CSV logging
 
-mod utils;
+mod dashboard;
 mod graph_scoring;
 mod scoring;
-mod tfidf;
 mod scraper; // Add mod scraper
-mod dashboard; // Add mod dashboard
+mod tfidf;
+mod utils; // Add mod dashboard
 
-use utils::compute_cosine_similarity;
 use graph_scoring::build_knowledge_graph;
 use scoring::score_lines;
 use tfidf::TfIdfBuilder;
+use utils::compute_cosine_similarity;
 
 #[derive(Serialize, Deserialize)]
 struct ResumeLine {
@@ -57,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     // --- End Dashboard Launch ---
 
     println!("Initializing models...");
-    
+
     // Initialize models
     let bert_model = SentenceEmbeddingsBuilder::remote(SentenceEmbeddingsModelType::AllMiniLmL6V2)
         .create_model()?;
@@ -77,7 +79,7 @@ fn main() -> anyhow::Result<()> {
                 // Prompt for company and role
                 let mut company_input = String::new();
                 let mut role_input = String::new();
-                
+
                 print!("Enter company name for the scraped job: ");
                 io::stdout().flush()?; // Ensure prompt is shown before input
                 io::stdin().read_line(&mut company_input)?;
@@ -89,12 +91,15 @@ fn main() -> anyhow::Result<()> {
                 let role = role_input.trim();
 
                 if company.is_empty() || role.is_empty() {
-                    eprintln!("Company and Role are required to save scraped content. Skipping saving.");
+                    eprintln!(
+                        "Company and Role are required to save scraped content. Skipping saving."
+                    );
                 } else {
                     // Ensure job_descriptions directory exists
-                    fs::create_dir_all("job_descriptions")?; 
+                    fs::create_dir_all("job_descriptions")?;
                     let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();
-                    let filename = format!("job_descriptions/{}-{}-{}.md", company, role, timestamp);
+                    let filename =
+                        format!("job_descriptions/{}-{}-{}.md", company, role, timestamp);
                     match fs::write(&filename, &scraped_content) {
                         Ok(_) => println!("Scraped content saved to {}", filename),
                         Err(e) => eprintln!("Error saving scraped content: {}", e),
@@ -109,21 +114,22 @@ fn main() -> anyhow::Result<()> {
     // --- End Scraper Integration ---
 
     println!("Loading resume data...");
-    
+
     // Load resume data
     let resume_json = fs::read_to_string("resume-lines.json")?;
     let resume_data: ResumeData = serde_json::from_str(&resume_json)?;
 
     println!("Precomputing embeddings and entities for resume lines...");
-    
+
     // Precompute embeddings and entities for resume lines
     let mut resume_lines_data = Vec::new();
     for line in &resume_data.lines {
-        let embedding = bert_model.encode(&[&line.line])?
+        let embedding = bert_model
+            .encode(&[&line.line])?
             .into_iter()
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to get embedding for line: {}", line.line))?;
-            
+
         let entities_res = ner_model.predict(&[&line.line]);
         let entities: Result<Vec<(String, Vec<f32>)>, anyhow::Error> = entities_res
             .first()
@@ -131,14 +137,17 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .map(|entity| {
                 let entity_text = entity.word.clone();
-                let entity_embedding = bert_model.encode(&[&entity_text])?
+                let entity_embedding = bert_model
+                    .encode(&[&entity_text])?
                     .into_iter()
                     .next()
-                    .ok_or_else(|| anyhow::anyhow!("Failed to get embedding for entity: {}", entity_text))?;
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Failed to get embedding for entity: {}", entity_text)
+                    })?;
                 Ok((entity_text, entity_embedding))
             })
             .collect();
-            
+
         resume_lines_data.push(ResumeLineData {
             line: line.line.clone(),
             job: line.job.clone(),
@@ -151,13 +160,22 @@ fn main() -> anyhow::Result<()> {
     fs::create_dir_all("output")?;
 
     println!("Processing job descriptions...");
-    
+
     // Process each job description
     for entry in fs::read_dir("job_descriptions")? {
         let path = entry?.path();
-        if path.extension().map_or(false, |ext| ext == "txt" || ext == "md") {
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "txt" || ext == "md")
+        {
             println!("Processing: {:?}", path);
-            process_job_description(&path, &resume_lines_data, &resume_data.skills, &bert_model, &ner_model)?;
+            process_job_description(
+                &path,
+                &resume_lines_data,
+                &resume_data.skills,
+                &bert_model,
+                &ner_model,
+            )?;
         }
     }
 
@@ -175,15 +193,19 @@ fn process_job_description(
     const MINIMUM_RELEVANCE_SCORE: f32 = 0.2;
 
     // Extract company and role from filename (e.g., "AcmeCorp-SoftwareEngineer.txt")
-    let filename = path.file_stem()
+    let filename = path
+        .file_stem()
         .and_then(|s| s.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid filename: {:?}", path))?;
-    
+
     let parts: Vec<&str> = filename.split('-').collect();
     if parts.len() < 2 {
-        return Err(anyhow::anyhow!("Filename must be in format 'Company-Role.txt': {}", filename));
+        return Err(anyhow::anyhow!(
+            "Filename must be in format 'Company-Role.txt': {}",
+            filename
+        ));
     }
-    
+
     let company = parts[0].to_string();
     let role = parts[1].to_string();
 
@@ -208,40 +230,74 @@ fn process_job_description(
     let jd_entities = build_knowledge_graph(&jd_text, bert_model, ner_model)?;
 
     // Score resume lines
-    let scored_lines = score_lines(resume_lines, &jd_sentence_embeddings, &tfidf_model, &jd_entities, &jd_text);
+    let scored_lines = score_lines(
+        resume_lines,
+        &jd_sentence_embeddings,
+        &tfidf_model,
+        &jd_entities,
+        &jd_text,
+    );
 
     // Determine relevant skills (Moved here to be available for highlighting)
     let common_tech_skills: Vec<String> = vec![
-        "rust", "python", "java", "c++", "javascript", "aws", "azure", "gcp", "docker", "kubernetes", 
-        "sql", "nosql", "linux", "machine learning", "nlp", "data analysis", "react", "angular", "vue",
-        "systems architecture", "policy analysis", "legislative monitoring", "legal reasoning", 
-        "project management", "business management", "nix", "lobbying" // Adding some from existing master list
-    ].into_iter().map(String::from).collect();
+        "rust",
+        "python",
+        "java",
+        "c++",
+        "javascript",
+        "aws",
+        "azure",
+        "gcp",
+        "docker",
+        "kubernetes",
+        "sql",
+        "nosql",
+        "linux",
+        "machine learning",
+        "nlp",
+        "data analysis",
+        "react",
+        "angular",
+        "vue",
+        "systems architecture",
+        "policy analysis",
+        "legislative monitoring",
+        "legal reasoning",
+        "project management",
+        "business management",
+        "nix",
+        "lobbying", // Adding some from existing master list
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
 
     let mut preliminary_skills: Vec<String> = Vec::new();
     let jd_text_lower = jd_text.to_lowercase(); // jd_text is already defined
 
     // Extract skills from JD entities
-    for (entity_text, _) in &jd_entities { // jd_entities is already defined
+    for (entity_text, _) in &jd_entities {
+        // jd_entities is already defined
         let entity_lower = entity_text.to_lowercase();
         if common_tech_skills.contains(&entity_lower) {
-            preliminary_skills.push(entity_text.clone()); 
+            preliminary_skills.push(entity_text.clone());
         }
     }
 
     // Extract skills from candidate's master list if present in JD
     // 'skills' here refers to the function parameter resume_data.skills (master list)
-    for skill_master in skills { // 'skills' is a function parameter
+    for skill_master in skills {
+        // 'skills' is a function parameter
         let skill_master_lower = skill_master.to_lowercase();
         if jd_text_lower.contains(&skill_master_lower) {
-            preliminary_skills.push(skill_master.clone()); 
+            preliminary_skills.push(skill_master.clone());
         }
     }
 
     // Deduplicate relevant_skills, preserving order of first appearance
-    let mut relevant_skills: Vec<String> = Vec::new(); 
+    let mut relevant_skills: Vec<String> = Vec::new();
     let mut seen_skills_lower: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for skill_prelim in preliminary_skills { 
+    for skill_prelim in preliminary_skills {
         if seen_skills_lower.insert(skill_prelim.to_lowercase()) {
             relevant_skills.push(skill_prelim);
         }
@@ -262,28 +318,31 @@ fn process_job_description(
     let mut selected_lines: HashMap<String, Vec<String>> = HashMap::new();
     for (job, mut lines) in lines_by_job {
         lines.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let top_lines: Vec<String> = lines
             .into_iter()
             .filter(|(_, score)| *score >= MINIMUM_RELEVANCE_SCORE) // Filter by score
-            .take(4)                                              // Then take top 4 of the *remaining*
+            .take(4) // Then take top 4 of the *remaining*
             .map(|(line, _)| {
                 let mut formatted_line = line.clone();
                 // `relevant_skills` is in scope here as it was moved before this block.
-                for skill_to_highlight in &relevant_skills { 
+                for skill_to_highlight in &relevant_skills {
                     let pattern = format!(r"(?i)\b({})\b", regex::escape(skill_to_highlight));
                     // Handle potential regex compilation error more gracefully if this were production code
                     if let Ok(re) = Regex::new(&pattern) {
-                        formatted_line = re.replace_all(&formatted_line, |caps: &regex::Captures| {
-                            format!("#strong[{}]", &caps[0])
-                        }).into_owned();
+                        formatted_line = re
+                            .replace_all(&formatted_line, |caps: &regex::Captures| {
+                                format!("#strong[{}]", &caps[0])
+                            })
+                            .into_owned();
                     }
                 }
                 formatted_line
             })
             .collect();
-        
-        if !top_lines.is_empty() { // Only insert if there are lines meeting the threshold
+
+        if !top_lines.is_empty() {
+            // Only insert if there are lines meeting the threshold
             selected_lines.insert(job, top_lines);
         }
     }
@@ -306,9 +365,12 @@ fn process_job_description(
 
     // Generate Typst resume
     let typst_content = generate_typst_resume(&selected_lines, &relevant_skills); // This `relevant_skills` is now correctly defined above
-    
+
     // Corrected output path for the resume
-    let resume_output_path = format!("{}/Resume_{}_{}_{}.typ", src_dir, company, role, tracking_number);
+    let resume_output_path = format!(
+        "{}/Resume_{}_{}_{}.typ",
+        src_dir, company, role, tracking_number
+    );
     let mut file = File::create(&resume_output_path)?;
     file.write_all(typst_content.as_bytes())?;
 
@@ -327,18 +389,21 @@ fn process_job_description(
     let cover_letter_content = generate_typst_cover_letter(
         &company,
         &role,
-        &date_str, // already defined from previous steps
+        &date_str,        // already defined from previous steps
         &tracking_number, // already defined from previous steps
         user_name_cv,
         user_email_cv,
         user_phone_cv,
         user_linkedin_cv,
         user_github_cv,
-        user_site_cv
+        user_site_cv,
     );
 
     // Save the Cover Letter
-    let cover_letter_output_path = format!("{}/CoverLetter_{}_{}_{}.typ", src_dir, company, role, tracking_number);
+    let cover_letter_output_path = format!(
+        "{}/CoverLetter_{}_{}_{}.typ",
+        src_dir, company, role, tracking_number
+    );
     let mut cl_file = File::create(&cover_letter_output_path)?;
     cl_file.write_all(cover_letter_content.as_bytes())?;
     println!("Generated cover letter: {}", cover_letter_output_path);
@@ -368,10 +433,14 @@ fn process_job_description(
     }
 
     // Compile Cover Letter to PDF
-    let cover_letter_pdf_filename = format!("CoverLetter_{}_{}_{}.pdf", company, role, tracking_number);
+    let cover_letter_pdf_filename =
+        format!("CoverLetter_{}_{}_{}.pdf", company, role, tracking_number);
     let cover_letter_pdf_output_path = format!("{}/{}", export_dir, cover_letter_pdf_filename);
-    
-    println!("Compiling cover letter to PDF: {}", cover_letter_pdf_output_path);
+
+    println!(
+        "Compiling cover letter to PDF: {}",
+        cover_letter_pdf_output_path
+    );
     let compile_cl_status = Command::new("typst")
         .arg("compile")
         .arg(&cover_letter_output_path) // Input .typ file
@@ -401,7 +470,9 @@ fn process_job_description(
         .append(true)
         .open(&csv_path)?;
 
-    let mut wtr = WriterBuilder::new().has_headers(!file_exists).from_writer(csv_file);
+    let mut wtr = WriterBuilder::new()
+        .has_headers(!file_exists)
+        .from_writer(csv_file);
 
     // Headers are: TrackingNumber, Company, Role, ApplicationDate, ResumeTypPath, CoverLetterTypPath, ResumePdfPath, CoverLetterPdfPath, Status
     wtr.serialize((
@@ -411,7 +482,7 @@ fn process_job_description(
         &date_str, // Processing date
         &resume_output_path,
         &cover_letter_output_path,
-        &resume_pdf_output_path, 
+        &resume_pdf_output_path,
         &cover_letter_pdf_output_path,
         "Generated", // Initial status
     ))?;
@@ -421,7 +492,10 @@ fn process_job_description(
     Ok(())
 }
 
-fn generate_typst_resume(selected_lines: &HashMap<String, Vec<String>>, relevant_skills: &Vec<String>) -> String {
+fn generate_typst_resume(
+    selected_lines: &HashMap<String, Vec<String>>,
+    relevant_skills: &Vec<String>,
+) -> String {
     let format_lines = |job_key: &str| -> String {
         selected_lines
             .get(job_key)
@@ -538,6 +612,7 @@ fn generate_typst_resume(selected_lines: &HashMap<String, Vec<String>>, relevant
   location: "Converse, IN",
   company: "Miami County Agricultural Association",
   dates: dates-helper(start-date: "November 2017", end-date: "Present"),
+  url: "conversefair.com",
 )
 {}
 
@@ -569,12 +644,12 @@ fn generate_typst_cover_letter(
     role: &str,
     current_date_str: &str,
     tracking_number: &str,
-    user_name: &str, 
+    user_name: &str,
     user_email: &str,
     user_phone: &str,
     user_linkedin: &str,
     user_github: &str,
-    user_site: &str
+    user_site: &str,
 ) -> String {
     // A simple, generic cover letter template
     format!(
